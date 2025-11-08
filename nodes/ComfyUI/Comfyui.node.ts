@@ -190,15 +190,26 @@ export class Comfyui implements INodeType {
 					});
 				}
 
-				if (promptResult.status === undefined) {
-					throw new NodeApiError(this.getNode(), { message: '[ComfyUI] Workflow execution failed: prompt contains no status' });
-				}
-				if (promptResult.status?.completed) {
-					console.log('[ComfyUI] Execution completed');
+			if (promptResult.status === undefined) {
+				throw new NodeApiError(this.getNode(), { message: '[ComfyUI] Workflow execution failed: prompt contains no status' });
+			}
 
-					if (promptResult.status?.status_str === 'error') {
-						throw new NodeApiError(this.getNode(), { message: '[ComfyUI] Workflow execution failed' });
-					}
+			// Check for errors regardless of completion status
+			if (promptResult.status?.status_str === 'error') {
+				const errorMessages = promptResult.status?.messages || [];
+				const executionError = errorMessages.find((msg: any) => msg[0] === 'execution_error');
+				let errorDetails = '[ComfyUI] Workflow execution failed';
+
+				if (executionError && executionError[1]) {
+					const errorInfo = executionError[1];
+					errorDetails = `[ComfyUI] Workflow execution failed in node ${errorInfo.node_id} (${errorInfo.node_type}): ${errorInfo.exception_message}`;
+				}
+
+				throw new NodeApiError(this.getNode(), { message: errorDetails });
+			}
+
+			if (promptResult.status?.completed) {
+				console.log('[ComfyUI] Execution completed');
 
 					// Process outputs
 					if (!promptResult.outputs) {
