@@ -191,8 +191,7 @@ export class Comfyui implements INodeType {
 				}
 
 				if (promptResult.status === undefined) {
-					console.log('[ComfyUI] Execution status not found');
-					continue;
+					throw new NodeApiError(this.getNode(), { message: '[ComfyUI] Workflow execution failed: prompt contains no status' });
 				}
 				if (promptResult.status?.completed) {
 					console.log('[ComfyUI] Execution completed');
