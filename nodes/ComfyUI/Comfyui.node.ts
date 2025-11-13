@@ -3,18 +3,20 @@ import {
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
+	NodeApiError,
 } from 'n8n-workflow';
-import { NodeApiError } from 'n8n-workflow';
-import { Jimp } from 'jimp';
+import { ITask } from './ITask';
+import { ImageTask } from './ImageTask';
+import { VideoTask } from './VideoTask';
 
-export class Comfyui implements INodeType {
+export class Comfyui implements INodeType { // do NOT change the name of the class - backward compat will break!
 	description: INodeTypeDescription = {
 		displayName: 'ComfyUI',
 		name: 'comfyui',
 		icon: 'file:comfyui.svg',
 		group: ['transform'],
 		version: 1,
-		description: 'Execute ComfyUI workflows',
+		description: 'Generate images using ComfyUI',
 		defaults: {
 			name: 'ComfyUI',
 		},
@@ -209,69 +211,37 @@ export class Comfyui implements INodeType {
 			}
 
 			if (promptResult.status?.completed) {
-				console.log('[ComfyUI] Execution completed');
+				console.log('[ComfyUI] Image generation completed');
 
-					// Process outputs
-					if (!promptResult.outputs) {
-						throw new NodeApiError(this.getNode(), { message: '[ComfyUI] No outputs found in workflow result' });
+					if (promptResult.status.status_str === 'error') {
+						throw new NodeApiError(this.getNode(), { message: '[ComfyUI] Image generation failed' });
 					}
-
 					// Get all image outputs
 					const outputs = await Promise.all(
 						Object.values(promptResult.outputs)
-							.flatMap((nodeOutput: any) => nodeOutput.images || [])
-							.filter((image: any) => image.type === 'output' || image.type === 'temp')
+							.flatMap((nodeOutput: any) => [...(nodeOutput.images || []), ...(nodeOutput.gifs || [])])
+							.filter((image: any) => image.type === 'output')
 							.map(async (file: any) => {
 								console.log(`[ComfyUI] Downloading ${file.type} image:`, file.filename);
-								let imageUrl = `${apiUrl}/view?filename=${file.filename}&subfolder=${file.subfolder || ''}&type=${file.type || ''}`;
-
-
-								try {
-									const imageData = await this.helpers.request({
-										method: 'GET',
-										url: imageUrl,
-										encoding: null,
-										headers,
-									});
-									const image = await Jimp.read(Buffer.from(imageData, 'base64'));
-									let outputBuffer: Buffer;
-									if (outputFormat === 'jpeg') {
-										outputBuffer = await image.getBuffer("image/jpeg", { quality: jpegQuality });
-									} else {
-										outputBuffer = await image.getBuffer(`image/png`);
-									}
-									const outputBase64 = outputBuffer.toString('base64');
-									const item: INodeExecutionData = {
-										json: {
-											filename: file.filename,
-											type: file.type,
-											subfolder: file.subfolder || '',
-											data: outputBase64,
-										},
-										binary: {
-											data: {
-												fileName: file.filename,
-												data: outputBase64,
-												fileType: 'image',
-												fileSize: Math.round(outputBuffer.length / 1024 * 10) / 10 + " kB",
-												fileExtension: outputFormat,
-												mimeType: `image/${outputFormat}`,
-											}
-										}
-									};
-									return item
-								} catch (error) {
-									console.error(`[ComfyUI] Failed to download image ${file.filename}:`, error);
-									return {
-										json: {
-											filename: file.filename,
-											type: file.type,
-											subfolder: file.subfolder || '',
-											error: error.message,
-										},
-									};
+								const fileExtension = file.filename.split('.').pop()?.toLowerCase() || '';
+								const isVideo = ['mp4', 'webm', 'mov', 'avi', 'gif', 'webp'].includes(
+									fileExtension,
+								);
+								let task: ITask;
+								if (isVideo) {
+									task = new VideoTask();
+								} else {
+									task = new ImageTask();
 								}
-							})
+								return task.execute.call(
+									this,
+									file,
+									apiUrl,
+									headers,
+									outputFormat,
+									jpegQuality,
+								);
+							}),
 					);
 
 					console.log('[ComfyUI] All images downloaded successfully');
