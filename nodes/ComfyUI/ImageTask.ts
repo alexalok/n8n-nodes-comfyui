@@ -1,5 +1,5 @@
 import { IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
-const Jimp = require('jimp');
+import { Jimp } from 'jimp';
 import { ITask } from './ITask';
 
 export class ImageTask implements ITask {
@@ -24,9 +24,9 @@ export class ImageTask implements ITask {
 			const image = await Jimp.read(Buffer.from(imageData));
 			let outputBuffer: Buffer;
 			if (outputFormat === 'jpeg') {
-				outputBuffer = await image.quality(jpegQuality).getBufferAsync('image/jpeg');
+				outputBuffer = await image.getBuffer('image/jpeg', { quality: jpegQuality });
 			} else {
-				outputBuffer = await image.getBufferAsync('image/png');
+				outputBuffer = await image.getBuffer('image/png');
 			}
 			const outputBase64 = outputBuffer.toString('base64');
 			const item: INodeExecutionData = {
