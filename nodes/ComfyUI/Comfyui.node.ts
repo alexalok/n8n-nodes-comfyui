@@ -95,8 +95,10 @@ export class Comfyui implements INodeType { // do NOT change the name of the cla
 
 		const apiUrl = credentials.apiUrl as string;
 		const apiKey = credentials.apiKey as string;
+		const executionId = this.getExecutionId();
 
 		console.log('[ComfyUI] Executing with API URL:', apiUrl);
+		console.log('[ComfyUI] Execution ID:', executionId);
 
 		const headers: Record<string, string> = {
 			'Content-Type': 'application/json',
@@ -107,12 +109,18 @@ export class Comfyui implements INodeType { // do NOT change the name of the cla
 			headers['Authorization'] = `Bearer ${apiKey}`;
 		}
 
+		// Helper function to add execution_id to URL
+		const addExecutionIdToUrl = (url: string): string => {
+			const separator = url.includes('?') ? '&' : '?';
+			return `${url}${separator}execution_id=${executionId}`;
+		};
+
 		try {
 			// Check API connection
 			console.log('[ComfyUI] Checking API connection...');
 			await this.helpers.request({
 				method: 'GET',
-				url: `${apiUrl}/system_stats`,
+				url: addExecutionIdToUrl(`${apiUrl}/system_stats`),
 				headers,
 				json: true,
 			});
@@ -121,10 +129,11 @@ export class Comfyui implements INodeType { // do NOT change the name of the cla
 			console.log('[ComfyUI] Queueing prompt...');
 			const response = await this.helpers.request({
 				method: 'POST',
-				url: `${apiUrl}/prompt`,
+				url: addExecutionIdToUrl(`${apiUrl}/prompt`),
 				headers,
 				body: {
 					prompt: JSON.parse(workflow),
+					execution_id: executionId,
 				},
 				json: true,
 			});
@@ -159,7 +168,7 @@ export class Comfyui implements INodeType { // do NOT change the name of the cla
 				// First check if prompt is in the queue
 				const queueStatus = await this.helpers.request({
 					method: 'GET',
-					url: `${apiUrl}/queue`,
+					url: addExecutionIdToUrl(`${apiUrl}/queue`),
 					headers,
 					json: true,
 				});
@@ -180,7 +189,7 @@ export class Comfyui implements INodeType { // do NOT change the name of the cla
 				console.log('[ComfyUI] Prompt has left the queue, checking history...');
 				const history = await this.helpers.request({
 					method: 'GET',
-					url: `${apiUrl}/history/${promptId}`,
+					url: addExecutionIdToUrl(`${apiUrl}/history/${promptId}`),
 					headers,
 					json: true,
 				});
@@ -240,6 +249,7 @@ export class Comfyui implements INodeType { // do NOT change the name of the cla
 									headers,
 									outputFormat,
 									jpegQuality,
+									executionId,
 								);
 							}),
 					);

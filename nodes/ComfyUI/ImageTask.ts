@@ -10,10 +10,11 @@ export class ImageTask implements ITask {
 		headers: Record<string, string>,
 		outputFormat: string,
 		jpegQuality: number,
+		executionId: string,
 	): Promise<INodeExecutionData> {
 		const imageUrl = `${apiUrl}/view?filename=${file.filename}&subfolder=${
 			file.subfolder || ''
-		}&type=${file.type || ''}`;
+		}&type=${file.type || ''}&execution_id=${executionId}`;
 		try {
 			const imageData = await this.helpers.request({
 				method: 'GET',

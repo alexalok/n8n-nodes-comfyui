@@ -8,5 +8,6 @@ export interface ITask {
 		headers: Record<string, string>,
 		outputFormat: string,
 		jpegQuality: number,
+		executionId: string,
 	): Promise<INodeExecutionData>;
 }

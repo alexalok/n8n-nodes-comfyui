@@ -9,10 +9,11 @@ export class VideoTask implements ITask {
 		headers: Record<string, string>,
 		outputFormat: string,
 		jpegQuality: number,
+		executionId: string,
 	): Promise<INodeExecutionData> {
 		const videoUrl = `${apiUrl}/view?filename=${file.filename}&subfolder=${
 			file.subfolder || ''
-		}&type=${file.type || ''}`;
+		}&type=${file.type || ''}&execution_id=${executionId}`;
 		try {
 			const videoData = await this.helpers.request({
 				method: 'GET',
