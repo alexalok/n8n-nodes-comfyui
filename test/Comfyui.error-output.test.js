@@ -49,7 +49,27 @@ function createExecuteContext({
 	};
 }
 
-test('returns an error-route item and stores node context when configured to continue using error output', async () => {
+function routeContinueErrorOutput(nodeSuccessData) {
+	const successItems = [];
+	const errorItems = [];
+
+	for (const item of nodeSuccessData[0] ?? []) {
+		const hasError =
+			item.error ||
+			(item.json.error && Object.keys(item.json).length === 1) ||
+			(item.json.error && item.json.message && Object.keys(item.json).length === 2);
+
+		if (hasError) {
+			errorItems.push(item);
+		} else {
+			successItems.push(item);
+		}
+	}
+
+	return [successItems, errorItems];
+}
+
+test('returns an item n8n core routes to error output and stores node context', async () => {
 	const requestError = Object.assign(
 		new Error('529 - {"error":"No instances available, try again later"}'),
 		{
@@ -79,6 +99,10 @@ test('returns an error-route item and stores node context when configured to con
 	});
 	assert.equal(executeContext.nodeContext.lastError.message, result[0][0].json.message);
 	assert.match(executeContext.nodeContext.lastError.stack, /No instances available/);
+
+	const routedOutputs = routeContinueErrorOutput(result);
+	assert.deepEqual(routedOutputs[0], []);
+	assert.deepEqual(routedOutputs[1], [result[0][0]]);
 });
 
 test('throws the ComfyUI API error when not configured for error output', async () => {
