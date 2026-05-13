@@ -3,7 +3,11 @@ const test = require('node:test');
 
 const { Comfyui } = require('../dist/nodes/ComfyUI/Comfyui.node.js');
 
-function createExecuteContext({ onError = 'continueErrorOutput', requestError }) {
+function createExecuteContext({
+	onError = 'continueErrorOutput',
+	requestError,
+	inputData = [{ json: { source: 'input' } }],
+}) {
 	const nodeContext = {};
 
 	return {
@@ -32,7 +36,7 @@ function createExecuteContext({ onError = 'continueErrorOutput', requestError })
 
 			return parameters[name];
 		},
-		getInputData: () => [{ json: { source: 'input' } }],
+		getInputData: () => inputData,
 		getContext: (type) => {
 			assert.equal(type, 'node');
 			return nodeContext;
@@ -89,4 +93,30 @@ test('throws the ComfyUI API error when not configured for error output', async 
 		/ComfyUI API Error: Connection refused/,
 	);
 	assert.equal(executeContext.nodeContext.lastError.message, 'ComfyUI API Error: Connection refused');
+});
+
+test('coerces non-string error messages before routing to error output', async () => {
+	const executeContext = createExecuteContext({
+		requestError: {
+			message: {
+				error: 'No instances available',
+			},
+		},
+	});
+
+	const result = await Comfyui.prototype.execute.call(executeContext);
+
+	assert.equal(result[0][0].json.message, 'ComfyUI API Error: [object Object]');
+	assert.equal(executeContext.nodeContext.lastError.message, result[0][0].json.message);
+});
+
+test('pairs error output to every input item when multiple items were received', async () => {
+	const executeContext = createExecuteContext({
+		requestError: new Error('Queue unavailable'),
+		inputData: [{ json: { source: 'first' } }, { json: { source: 'second' } }],
+	});
+
+	const result = await Comfyui.prototype.execute.call(executeContext);
+
+	assert.deepEqual(result[0][0].pairedItem, [{ item: 0 }, { item: 1 }]);
 });

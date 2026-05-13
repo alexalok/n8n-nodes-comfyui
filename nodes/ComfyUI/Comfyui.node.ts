@@ -11,8 +11,8 @@ import { ImageTask } from './ImageTask';
 import { VideoTask } from './VideoTask';
 
 type ErrorLike = {
-	message?: string;
-	name?: string;
+	message?: unknown;
+	name?: unknown;
 	stack?: string;
 	description?: string;
 	httpCode?: string | number | null;
@@ -44,7 +44,10 @@ function toErrorLike(error: unknown): ErrorLike {
 }
 
 function getComfyUiErrorMessage(error: ErrorLike): string {
-	const message = error.message || 'Unknown error';
+	const message =
+		error.message === undefined || error.message === null || error.message === ''
+			? 'Unknown error'
+			: String(error.message);
 	return message.startsWith('ComfyUI API Error: ') ? message : `ComfyUI API Error: ${message}`;
 }
 
@@ -136,8 +139,8 @@ function getErrorDetails(error: ErrorLike, nodeError: NodeApiError, includeStack
 		details.description = nodeError.description;
 	}
 
-	if (error.message && error.message !== nodeError.message) {
-		details.causeMessage = error.message;
+	if (error.message !== undefined && error.message !== null && error.message !== nodeError.message) {
+		addErrorDetail(details, 'causeMessage', error.message);
 	}
 
 	if (nodeError.messages.length > 0) {
@@ -166,7 +169,10 @@ function createErrorOutputItem(
 	};
 
 	if (inputData.length > 0) {
-		item.pairedItem = { item: 0 };
+		item.pairedItem =
+			inputData.length === 1
+				? { item: 0 }
+				: inputData.map((_inputItem, itemIndex) => ({ item: itemIndex }));
 	}
 
 	return item;
