@@ -183,3 +183,22 @@ test('sanitizes non-string stack values before storing node context', async () =
 
 	assert.equal(executeContext.nodeContext.lastError.stack, undefined);
 });
+
+test('handles NodeApiError without messages metadata', async () => {
+	const requestError = new NodeApiError(
+		nodeDescription,
+		{ message: 'Prompt contains no status' },
+		{
+			message: 'Prompt contains no status',
+			httpCode: '503',
+		},
+	);
+	requestError.messages = undefined;
+	const executeContext = createExecuteContext({ requestError });
+
+	const result = await Comfyui.prototype.execute.call(executeContext);
+
+	assert.equal(result[0][0].json.message, 'Prompt contains no status');
+	assert.equal(result[0][0].json.error.messages, undefined);
+	assert.equal(executeContext.nodeContext.lastError.messages, undefined);
+});

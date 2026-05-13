@@ -147,7 +147,7 @@ function getErrorDetails(error: ErrorLike, nodeError: NodeApiError, includeStack
 		addErrorDetail(details, 'causeMessage', error.message);
 	}
 
-	if (nodeError.messages.length > 0) {
+	if (Array.isArray(nodeError.messages) && nodeError.messages.length > 0) {
 		details.messages = nodeError.messages;
 	}
 
