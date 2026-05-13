@@ -1,7 +1,17 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
+const { NodeApiError } = require('n8n-workflow');
 const { Comfyui } = require('../dist/nodes/ComfyUI/Comfyui.node.js');
+
+const nodeDescription = {
+	id: 'node-1',
+	name: 'ComfyUI',
+	type: 'n8n-nodes-comfyui-ex.comfyui',
+	typeVersion: 1,
+	position: [0, 0],
+	parameters: {},
+};
 
 function createExecuteContext({
 	onError = 'continueErrorOutput',
@@ -18,12 +28,7 @@ function createExecuteContext({
 		}),
 		getExecutionId: () => 'exec-1',
 		getNode: () => ({
-			id: 'node-1',
-			name: 'ComfyUI',
-			type: 'n8n-nodes-comfyui-ex.comfyui',
-			typeVersion: 1,
-			position: [0, 0],
-			parameters: {},
+			...nodeDescription,
 			onError,
 		}),
 		getNodeParameter: (name) => {
@@ -143,4 +148,38 @@ test('pairs error output to every input item when multiple items were received',
 	const result = await Comfyui.prototype.execute.call(executeContext);
 
 	assert.deepEqual(result[0][0].pairedItem, [{ item: 0 }, { item: 1 }]);
+});
+
+test('preserves existing NodeApiError metadata when routing to error output', async () => {
+	const requestError = new NodeApiError(
+		nodeDescription,
+		{ message: 'Prompt contains no status' },
+		{
+			message: 'Prompt contains no status',
+			description: 'History entry had no status field',
+			httpCode: '503',
+		},
+	);
+	const executeContext = createExecuteContext({ requestError });
+
+	const result = await Comfyui.prototype.execute.call(executeContext);
+
+	assert.equal(result[0][0].json.message, 'Prompt contains no status');
+	assert.equal(result[0][0].json.error.message, 'Prompt contains no status');
+	assert.equal(result[0][0].json.error.description, 'History entry had no status field');
+	assert.equal(result[0][0].json.error.httpCode, '503');
+	assert.equal(executeContext.nodeContext.lastError.message, 'Prompt contains no status');
+});
+
+test('sanitizes non-string stack values before storing node context', async () => {
+	const executeContext = createExecuteContext({
+		requestError: {
+			message: 'Queue unavailable',
+			stack: () => 'object stack',
+		},
+	});
+
+	await Comfyui.prototype.execute.call(executeContext);
+
+	assert.equal(executeContext.nodeContext.lastError.stack, undefined);
 });

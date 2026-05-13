@@ -13,7 +13,7 @@ import { VideoTask } from './VideoTask';
 type ErrorLike = {
 	message?: unknown;
 	name?: unknown;
-	stack?: string;
+	stack?: unknown;
 	description?: string;
 	httpCode?: string | number | null;
 	statusCode?: string | number;
@@ -111,6 +111,10 @@ function getResponseBody(error: ErrorLike): unknown {
 }
 
 function createComfyUiApiError(executeFunctions: IExecuteFunctions, error: ErrorLike): NodeApiError {
+	if (error instanceof NodeApiError) {
+		return error;
+	}
+
 	const message = getComfyUiErrorMessage(error);
 	const httpCode = getHttpCode(error);
 
@@ -149,8 +153,8 @@ function getErrorDetails(error: ErrorLike, nodeError: NodeApiError, includeStack
 
 	addErrorDetail(details, 'responseBody', getResponseBody(error));
 
-	if (includeStack && error.stack) {
-		details.stack = error.stack;
+	if (includeStack) {
+		addErrorDetail(details, 'stack', error.stack);
 	}
 
 	return details;
