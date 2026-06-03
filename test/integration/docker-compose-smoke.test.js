@@ -96,9 +96,9 @@ test('docker compose stack starts n8n with local ComfyUI node and reaches ComfyU
 	docker(composeArgs('up', '--build', '--detach', 'n8n', 'comfyui'), { timeout: 900_000 });
 
 	await waitForResponse(
-		`http://127.0.0.1:${n8nPort}/healthz`,
-		'n8n health endpoint',
-		(body) => body.includes('OK') || body.includes('ok') || body.length >= 0,
+		`http://127.0.0.1:${n8nPort}/healthz/readiness`,
+		'n8n readiness endpoint',
+		(body) => JSON.parse(body).status === 'ok',
 		180_000,
 	);
 

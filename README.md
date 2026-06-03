@@ -82,7 +82,7 @@ pnpm lint
 
 `pnpm test:integration` builds this package, builds an n8n test image with the local node installed, starts n8n plus ComfyUI through Docker Compose, and verifies:
 
-- n8n responds on `/healthz`
+- n8n responds on `/healthz/readiness`
 - ComfyUI responds on `/system_stats`
 - n8n loads the ComfyUI node type in a fixture workflow
 - the n8n container can reach ComfyUI by Compose service name
