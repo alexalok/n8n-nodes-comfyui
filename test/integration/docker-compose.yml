@@ -1,0 +1,43 @@
+services:
+  n8n:
+    build:
+      context: ../..
+      dockerfile: test/integration/n8n.Dockerfile
+      args:
+        N8N_IMAGE: ${N8N_IMAGE:-docker.n8n.io/n8nio/n8n:2.20.6}
+    depends_on:
+      comfyui:
+        condition: service_started
+    environment:
+      GENERIC_TIMEZONE: UTC
+      N8N_COMMUNITY_PACKAGES_ENABLED: "true"
+      N8N_CUSTOM_EXTENSIONS: /home/node/.n8n/custom
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_ENCRYPTION_KEY: comfyui-integration-test-key
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "false"
+      N8N_SECURE_COOKIE: "false"
+      N8N_TEMPLATES_ENABLED: "false"
+      N8N_UNVERIFIED_PACKAGES_ENABLED: "true"
+      N8N_USER_MANAGEMENT_DISABLED: "true"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      TZ: UTC
+      WEBHOOK_URL: http://127.0.0.1:${N8N_INTEGRATION_PORT:-15678}/
+    ports:
+      - "127.0.0.1:${N8N_INTEGRATION_PORT:-15678}:5678"
+    volumes:
+      - ./fixtures:/integration-fixtures:ro
+
+  comfyui:
+    image: ${COMFYUI_IMAGE:-ghcr.io/ai-dock/comfyui:cpu-22.04}
+    platform: ${COMFYUI_PLATFORM:-linux/amd64}
+    environment:
+      AUTO_UPDATE: "false"
+      CF_QUICK_TUNNELS: "false"
+      COMFYUI_ARGS: --cpu --listen 0.0.0.0
+      COMFYUI_PORT_HOST: "8188"
+      DIRECT_ADDRESS: 127.0.0.1
+      DIRECT_ADDRESS_GET_WAN: "false"
+      WEB_ENABLE_AUTH: "false"
+      WEB_ENABLE_HTTPS: "false"
+    ports:
+      - "127.0.0.1:${COMFYUI_INTEGRATION_PORT:-18188}:8188"

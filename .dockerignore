@@ -1,0 +1,9 @@
+*
+!dist/
+!dist/**
+!index.js
+!package.json
+!pnpm-lock.yaml
+!test/
+!test/integration/
+!test/integration/n8n.Dockerfile

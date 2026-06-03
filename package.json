@@ -27,6 +27,8 @@
     "preinstall": "npx only-allow pnpm",
     "build": "tsc && gulp build:icons",
     "dev": "tsc --watch",
+    "test": "pnpm build && node --test test/Comfyui.error-output.test.js",
+    "test:integration": "pnpm build && node --test test/integration/docker-compose-smoke.test.js",
     "format": "prettier nodes credentials --write",
     "lint": "eslint nodes credentials package.json",
     "lintfix": "eslint nodes credentials package.json --fix",

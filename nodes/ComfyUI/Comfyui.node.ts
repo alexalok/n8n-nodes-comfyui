@@ -1,4 +1,5 @@
 import {
+	IDataObject,
 	IExecuteFunctions,
 	INodeExecutionData,
 	INodeType,
@@ -8,6 +9,178 @@ import {
 import { ITask } from './ITask';
 import { ImageTask } from './ImageTask';
 import { VideoTask } from './VideoTask';
+
+type ErrorLike = {
+	message?: unknown;
+	name?: unknown;
+	stack?: unknown;
+	description?: string;
+	httpCode?: string | number | null;
+	statusCode?: string | number;
+	status?: string | number;
+	response?: {
+		body?: unknown;
+		data?: unknown;
+		statusCode?: string | number;
+		status?: string | number;
+	};
+	body?: unknown;
+	data?: unknown;
+};
+
+function toErrorLike(error: unknown): ErrorLike {
+	if (error instanceof Error) {
+		return error;
+	}
+
+	if (typeof error === 'object' && error !== null) {
+		return error as ErrorLike;
+	}
+
+	return {
+		message: String(error),
+		name: typeof error,
+	};
+}
+
+function getComfyUiErrorMessage(error: ErrorLike): string {
+	const message =
+		error.message === undefined || error.message === null || error.message === ''
+			? 'Unknown error'
+			: String(error.message);
+	return message.startsWith('ComfyUI API Error: ') ? message : `ComfyUI API Error: ${message}`;
+}
+
+function getHttpCode(error: ErrorLike, nodeError?: NodeApiError): string | number | undefined {
+	const candidates = [
+		nodeError?.httpCode,
+		error.httpCode,
+		error.statusCode,
+		error.status,
+		error.response?.statusCode,
+		error.response?.status,
+	];
+
+	return candidates.find(
+		(candidate): candidate is string | number =>
+			typeof candidate === 'string' || typeof candidate === 'number',
+	);
+}
+
+function addErrorDetail(details: IDataObject, key: string, value: unknown): void {
+	if (value === undefined || typeof value === 'function' || typeof value === 'symbol') {
+		return;
+	}
+
+	if (typeof value === 'bigint') {
+		details[key] = value.toString();
+		return;
+	}
+
+	if (
+		value === null ||
+		typeof value === 'string' ||
+		typeof value === 'number' ||
+		typeof value === 'boolean'
+	) {
+		details[key] = value;
+		return;
+	}
+
+	try {
+		details[key] = JSON.parse(JSON.stringify(value));
+	} catch {
+		details[key] = String(value);
+	}
+}
+
+function getResponseBody(error: ErrorLike): unknown {
+	if (error.response?.body !== undefined) {
+		return error.response.body;
+	}
+
+	if (error.response?.data !== undefined) {
+		return error.response.data;
+	}
+
+	if (error.body !== undefined) {
+		return error.body;
+	}
+
+	return error.data;
+}
+
+function createComfyUiApiError(executeFunctions: IExecuteFunctions, error: ErrorLike): NodeApiError {
+	if (error instanceof NodeApiError) {
+		return error;
+	}
+
+	const message = getComfyUiErrorMessage(error);
+	const httpCode = getHttpCode(error);
+
+	return new NodeApiError(
+		executeFunctions.getNode(),
+		{ message },
+		{
+			message,
+			httpCode: httpCode === undefined ? undefined : httpCode.toString(),
+		},
+	);
+}
+
+function getErrorDetails(error: ErrorLike, nodeError: NodeApiError, includeStack: boolean): IDataObject {
+	const details: IDataObject = {
+		message: nodeError.message,
+		name: nodeError.name,
+	};
+	const httpCode = getHttpCode(error, nodeError);
+
+	if (httpCode !== undefined) {
+		details.httpCode = httpCode;
+	}
+
+	if (nodeError.description) {
+		details.description = nodeError.description;
+	}
+
+	if (error.message !== undefined && error.message !== null && error.message !== nodeError.message) {
+		addErrorDetail(details, 'causeMessage', error.message);
+	}
+
+	if (Array.isArray(nodeError.messages) && nodeError.messages.length > 0) {
+		details.messages = nodeError.messages;
+	}
+
+	addErrorDetail(details, 'responseBody', getResponseBody(error));
+
+	if (includeStack) {
+		addErrorDetail(details, 'stack', error.stack);
+	}
+
+	return details;
+}
+
+function createErrorOutputItem(
+	executeFunctions: IExecuteFunctions,
+	errorDetails: IDataObject,
+): INodeExecutionData {
+	const inputData = executeFunctions.getInputData();
+	const item: INodeExecutionData = {
+		json: {
+			error: errorDetails,
+			message: errorDetails.message,
+		},
+	};
+
+	if (inputData.length > 0) {
+		item.pairedItem =
+			inputData.length === 1
+				? { item: 0 }
+				: inputData.map((_inputItem, itemIndex) => ({ item: itemIndex }));
+	}
+
+	return item;
+}
 
 export class Comfyui implements INodeType { // do NOT change the name of the class - backward compat will break!
 	description: INodeTypeDescription = {
@@ -261,7 +434,17 @@ export class Comfyui implements INodeType { // do NOT change the name of the cla
 			throw new NodeApiError(this.getNode(), { message: `Execution timeout after ${timeout} minutes` });
 		} catch (error) {
 			console.error('[ComfyUI] Execution error:', error);
-			throw new NodeApiError(this.getNode(), { message: `ComfyUI API Error: ${error.message}` });
+
+			const errorLike = toErrorLike(error);
+			const nodeError = createComfyUiApiError(this, errorLike);
+			const contextErrorDetails = getErrorDetails(errorLike, nodeError, true);
+			this.getContext('node').lastError = contextErrorDetails;
+
+			if (this.getNode().onError === 'continueErrorOutput') {
+				return [[createErrorOutputItem(this, getErrorDetails(errorLike, nodeError, false))]];
+			}
+
+			throw nodeError;
 		}
 	}
 }
