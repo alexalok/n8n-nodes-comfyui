@@ -65,17 +65,42 @@ The node includes comprehensive error handling for:
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Build
-npm run build
+pnpm build
 
 # Test
-npm run test
+pnpm test
+
+# Integration test
+pnpm test:integration
 
 # Lint
-npm run lint
+pnpm lint
 ```
+
+`pnpm test:integration` builds this package, builds an n8n test image with the local node installed, starts n8n plus ComfyUI through Docker Compose, and verifies:
+
+- n8n responds on `/healthz`
+- ComfyUI responds on `/system_stats`
+- n8n loads the ComfyUI node type in a fixture workflow
+- the n8n container can reach ComfyUI by Compose service name
+
+Default images:
+
+- `docker.n8n.io/n8nio/n8n:2.20.6`
+- `ghcr.io/ai-dock/comfyui:cpu-22.04`
+
+Overrides:
+
+```bash
+N8N_IMAGE=docker.n8n.io/n8nio/n8n:2.20.6 \
+COMFYUI_IMAGE=ghcr.io/ai-dock/comfyui:cpu-22.04 \
+pnpm test:integration
+```
+
+First run pulls the ComfyUI CPU image and can take several minutes.
 
 ## License
 

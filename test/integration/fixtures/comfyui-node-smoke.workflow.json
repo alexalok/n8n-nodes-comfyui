@@ -1,0 +1,43 @@
+{
+  "id": "comfyui-node-load-smoke",
+  "name": "ComfyUI node load smoke",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "execute-workflow-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "workflow": "{}",
+        "outputFormat": "jpeg",
+        "jpegQuality": 80,
+        "timeout": 1
+      },
+      "id": "comfyui",
+      "name": "ComfyUI",
+      "type": "CUSTOM.comfyui",
+      "typeVersion": 1,
+      "position": [240, 0]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "ComfyUI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "pinData": {}
+}
